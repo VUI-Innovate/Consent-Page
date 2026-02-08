@@ -348,6 +348,7 @@
   </div>
 
   <!-- CMP Script -->
+  <script src="public/config.js"></script>
   <script src="https://pub-055f0f53e1134d06b53193c854751e03.r2.dev/cmp-script.js?v=2.0"></script>
   <script>
     function randomExternalUserId() {
@@ -458,8 +459,8 @@
 
     // Initialize CMP
     CMP.init({
-      apiBaseUrl: 'https://dpdp.dev4fun.science/consent',
-      publicApiBaseUrl: 'https://dpdp.dev4fun.science/public/policies',
+      apiBaseUrl: window.CMP_BASE_URLS.apiBaseUrl,
+      publicApiBaseUrl: window.CMP_BASE_URLS.publicApiBaseUrl,
       privacyPolicyId: 'cmkgoppg70001m6wrr1jal0hh',
       termsAndConditionsPolicyId: 'cmkgrj0xz0055j1wr8221bsm0',
       onConsentChange: function() {
