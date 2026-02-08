@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CMP - Auth Login/Logout (externalUserId) Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+      line-height: 1.6;
+      color: #e0e0e0;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+
+    .header h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+    }
+
+    .header .subtitle {
+      color: #a0a0a0;
+      font-size: 1.1rem;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+    }
+
+    .card h3 {
+      font-size: 1.3rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card h3::before {
+      content: '';
+      width: 4px;
+      height: 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 2px;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    input {
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
+      font-size: 14px;
+      transition: all 0.2s;
+      flex: 1;
+      min-width: 200px;
+    }
+
+    input::placeholder {
+      color: rgba(255, 255, 255, 0.4);
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #667eea;
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    button {
+      padding: 12px 20px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      transition: all 0.2s;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    button.secondary:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    code {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+      font-size: 0.9em;
+      color: #a78bfa;
+      border: 1px solid rgba(167, 139, 250, 0.2);
+    }
+
+    pre {
+      background: rgba(0, 0, 0, 0.4);
+      color: #e0e0e0;
+      padding: 20px;
+      border-radius: 12px;
+      overflow: auto;
+      font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      position: relative;
+      max-height: 500px;
+    }
+
+    .hint {
+      color: #a0a0a0;
+      font-size: 14px;
+      margin-top: 12px;
+      line-height: 1.6;
+    }
+
+    .identity-display {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .identity-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .identity-item strong {
+      min-width: 120px;
+      color: #a0a0a0;
+      font-weight: 500;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 8px;
+    }
+
+    .status-badge.anonymous {
+      background: rgba(156, 163, 175, 0.2);
+      color: #9ca3af;
+    }
+
+    .status-badge.authenticated {
+      background: rgba(34, 197, 94, 0.2);
+      color: #22c55e;
+    }
+
+    .copy-btn {
+      padding: 6px 12px;
+      font-size: 12px;
+      margin-left: auto;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .actions-section {
+      margin-bottom: 20px;
+    }
+
+    .actions-section .row:first-child {
+      margin-bottom: 16px;
+    }
+
+    .loading {
+      color: #667eea;
+      font-style: italic;
+    }
+
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 2rem;
+      }
+
+      .card {
+        padding: 20px;
+      }
+
+      .input-group {
+        flex-direction: column;
+      }
+
+      input {
+        width: 100%;
+        min-width: 100%;
+      }
+
+      button {
+        width: 100%;
+      }
+
+      .row {
+        flex-direction: column;
+      }
+
+      .row button {
+        width: 100%;
+      }
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-left: 8px;
+    }
+
+    .badge.test {
+      background: rgba(102, 126, 234, 0.2);
+      color: #a78bfa;
+      border: 1px solid rgba(102, 126, 234, 0.3);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>CMP Authentication Test</h1>
+      <p class="subtitle">
+        Test authenticated user flows with <code>externalUserId</code>. When logged in, CMP uses user-level consent.
+        When logged out, it falls back to device-level (<code>subjectId</code>) consent.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>Authentication Actions</h3>
+      <div class="actions-section">
+        <div class="row">
+          <button id="loginRandom">🔐 Login (Random ID)</button>
+          <button id="logout" class="secondary">🚪 Logout</button>
+          <button id="refresh" class="secondary">🔄 Refresh Consent</button>
+          <button id="openPrefs" class="secondary">⚙️ Open Preferences</button>
+        </div>
+        <div class="input-group">
+          <input id="externalUserIdInput" type="text" placeholder="Enter externalUserId (e.g. user-123)" />
+          <input id="userEmailInput" type="email" placeholder="Email (optional)" />
+          <input id="userNameInput" type="text" placeholder="Name (optional)" />
+          <button id="loginTyped">🔑 Login with Custom ID</button>
+        </div>
+      </div>
+      <p class="hint">
+        <strong>Storage:</strong> The CMP script stores <code>cmp_subject_id</code> (device identifier) and 
+        <code>cmp_external_user_id</code> (authenticated user identifier) in localStorage. 
+        Clear localStorage to simulate a fresh visitor.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>Consent Categories Status</h3>
+      <div id="categories" class="loading">Loading categories...</div>
+    </div>
+
+    <div class="card">
+      <h3>Consent Status</h3>
+      <div id="consent" class="loading">Loading consent data...</div>
+    </div>
+  </div>
+
+  <!-- CMP Script -->
+  <script src="https://pub-055f0f53e1134d06b53193c854751e03.r2.dev/cmp-script.js?v=2.0"></script>
+  <script>
+    function randomExternalUserId() {
+      if (crypto && crypto.randomUUID) return 'ext-' + crypto.randomUUID();
+      return 'ext-' + Math.random().toString(16).slice(2) + Date.now().toString(16);
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        // Visual feedback could be added here
+      }).catch(err => {
+        console.error('Failed to copy:', err);
+      });
+    }
+
+    function renderCategories() {
+      try {
+        const consent = CMP.getCurrentConsent();
+        if (!consent) {
+          document.getElementById('categories').innerHTML = '<div style="color: #a0a0a0;">No consent data available</div>';
+          document.getElementById('categories').classList.remove('loading');
+          return;
+        }
+
+        const categories = consent.categories || {};
+        const categoriesHTML = `
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div class="identity-item">
+              <strong>Necessary:</strong>
+              <span class="status-badge ${categories.necessary ? 'authenticated' : 'anonymous'}">
+                ${categories.necessary ? '✓ Enabled' : 'Disabled'}
+              </span>
+            </div>
+            <div class="identity-item">
+              <strong>Analytics:</strong>
+              <span class="status-badge ${categories.analytics ? 'authenticated' : 'anonymous'}">
+                ${categories.analytics ? '✓ Enabled' : 'Disabled'}
+              </span>
+            </div>
+            <div class="identity-item">
+              <strong>Performance:</strong>
+              <span class="status-badge ${categories.performance ? 'authenticated' : 'anonymous'}">
+                ${categories.performance ? '✓ Enabled' : 'Disabled'}
+              </span>
+            </div>
+            <div class="identity-item">
+              <strong>Marketing:</strong>
+              <span class="status-badge ${categories.marketing ? 'authenticated' : 'anonymous'}">
+                ${categories.marketing ? '✓ Enabled' : 'Disabled'}
+              </span>
+            </div>
+          </div>
+        `;
+        document.getElementById('categories').innerHTML = categoriesHTML;
+        document.getElementById('categories').classList.remove('loading');
+      } catch (error) {
+        document.getElementById('categories').innerHTML = `<div style="color: #ef4444;">Error: ${error.message}</div>`;
+        document.getElementById('categories').classList.remove('loading');
+      }
+    }
+
+    function renderConsent() {
+      try {
+        const consent = CMP.getCurrentConsent();
+        if (!consent) {
+          document.getElementById('consent').innerHTML = '<div style="color: #a0a0a0;">No consent data available</div>';
+          document.getElementById('consent').classList.remove('loading');
+          return;
+        }
+
+        // Filter only important fields from API response
+        const importantFields = {};
+        if (consent.status !== undefined) importantFields.status = consent.status;
+        if (consent.isCurrent !== undefined) importantFields.isCurrent = consent.isCurrent;
+        if (consent.hasConsent !== undefined) importantFields.hasConsent = consent.hasConsent;
+        if (consent.consentId) importantFields.consentId = consent.consentId;
+        if (consent.timestamp) importantFields.timestamp = consent.timestamp;
+        if (consent.subjectId) importantFields.subjectId = consent.subjectId;
+        if (consent.externalUserId) importantFields.externalUserId = consent.externalUserId;
+
+        const consentHTML = `
+          <pre style="background: rgba(0, 0, 0, 0.4); color: #e0e0e0; padding: 16px; border-radius: 8px; overflow: auto; font-family: 'Monaco', 'Menlo', 'Courier New', monospace; font-size: 13px; line-height: 1.6; border: 1px solid rgba(255, 255, 255, 0.1); margin: 0;">${JSON.stringify(importantFields, null, 2)}</pre>
+        `;
+        document.getElementById('consent').innerHTML = consentHTML;
+        document.getElementById('consent').classList.remove('loading');
+      } catch (error) {
+        document.getElementById('consent').innerHTML = `<div style="color: #ef4444;">Error: ${error.message}</div>`;
+        document.getElementById('consent').classList.remove('loading');
+      }
+    }
+
+    async function refreshConsent() {
+      try {
+        document.getElementById('categories').innerHTML = 'Refreshing...';
+        document.getElementById('categories').classList.add('loading');
+        document.getElementById('consent').innerHTML = 'Refreshing...';
+        document.getElementById('consent').classList.add('loading');
+        await CMP.checkConsent();
+        renderCategories();
+        renderConsent();
+      } catch (error) {
+        document.getElementById('categories').innerHTML = `Error: ${error.message}`;
+        document.getElementById('categories').classList.remove('loading');
+        document.getElementById('consent').innerHTML = `Error: ${error.message}`;
+        document.getElementById('consent').classList.remove('loading');
+      }
+    }
+
+    // Initialize CMP
+    CMP.init({
+      apiBaseUrl: 'https://dpdp.dev4fun.science/consent',
+      publicApiBaseUrl: 'https://dpdp.dev4fun.science/public/policies',
+      privacyPolicyId: 'cmkgoppg70001m6wrr1jal0hh',
+      termsAndConditionsPolicyId: 'cmkgrj0xz0055j1wr8221bsm0',
+      onConsentChange: function() {
+        renderCategories();
+        renderConsent();
+      }
+    });
+
+    document.getElementById('loginRandom').addEventListener('click', async () => {
+      try {
+        const id = randomExternalUserId();
+        await CMP.setExternalUserId(id, {
+          userData: { email: 'user@example.com', name: 'Test User' }
+        });
+        await refreshConsent();
+      } catch (error) {
+        alert('Error during login: ' + error.message);
+      }
+    });
+
+    document.getElementById('loginTyped').addEventListener('click', async () => {
+      try {
+        const externalUserId = document.getElementById('externalUserIdInput').value.trim();
+        const email = document.getElementById('userEmailInput').value.trim();
+        const name = document.getElementById('userNameInput').value.trim();
+
+        if (!externalUserId) {
+          alert('Please enter an externalUserId');
+          return;
+        }
+
+        await CMP.setExternalUserId(externalUserId, {
+          userData: {
+            email: email || 'user@example.com',
+            name: name || 'Test User'
+          }
+        });
+        await refreshConsent();
+      } catch (error) {
+        alert('Error during login: ' + error.message);
+      }
+    });
+
+    document.getElementById('logout').addEventListener('click', async () => {
+      try {
+        if (CMP.clearExternalUserId) {
+          await CMP.clearExternalUserId();
+        } else {
+          localStorage.removeItem('cmp_external_user_id');
+          localStorage.removeItem('cmp_external_user_data');
+        }
+        await refreshConsent();
+      } catch (error) {
+        alert('Error during logout: ' + error.message);
+      }
+    });
+
+    document.getElementById('refresh').addEventListener('click', async () => {
+      await refreshConsent();
+    });
+
+    document.getElementById('openPrefs').addEventListener('click', () => {
+      if (CMP.showBanner) {
+        CMP.showBanner(true);
+      } else if (CMP.openPreferences) {
+        CMP.openPreferences();
+      }
+    });
+
+    window.addEventListener('cmpConsentChange', () => {
+      renderCategories();
+      renderConsent();
+    });
+
+    // Initial render - wait for CMP to initialize and check consent
+    async function initialRender() {
+      try {
+        // Wait a bit for CMP to initialize
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Check if consent already exists and trigger a check
+        await CMP.checkConsent();
+        
+        // Render after consent check completes
+        setTimeout(() => {
+          renderCategories();
+          renderConsent();
+        }, 200);
+      } catch (error) {
+        console.error('Error in initial render:', error);
+        renderCategories();
+        renderConsent();
+      }
+    }
+
+    initialRender();
+  </script>
+  <script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.8.0/firebase-app.js";
+  // TODO: Add SDKs for Firebase products that you want to use
+  // https://firebase.google.com/docs/web/setup#available-libraries
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyCVw_nYAiUde_WeE71yNG6bUwWpbMaJJNQ",
+    authDomain: "consent-page-fccd9.firebaseapp.com",
+    projectId: "consent-page-fccd9",
+    storageBucket: "consent-page-fccd9.firebasestorage.app",
+    messagingSenderId: "965490849225",
+    appId: "1:965490849225:web:28a3d9ea158b37686a2418"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+</script>
+</body>
+</html>
