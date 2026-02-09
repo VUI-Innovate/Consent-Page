@@ -862,9 +862,9 @@
           <select id="cmp-banner-language" aria-label="Policy language" style="padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.2); background: #fff; color: ${styles.bannerTextColor}; font-size: 13px; cursor: pointer;">
             <option value="en" ${lang === 'en' ? 'selected' : ''}>English</option>
           </select>
-          <button type="button" id="cmp-summary-trigger" aria-expanded="false" aria-controls="cmp-summary-panel" aria-label="Expand privacy summary" style="background: none; border: none; color: ${styles.linkColor}; text-decoration: underline; font-size: 13px; cursor: pointer; padding: 0;">Read a short summary</button>
+          <button type="button" id="cmp-summary-trigger" aria-expanded="true" aria-controls="cmp-summary-panel" aria-label="Toggle privacy summary" style="background: none; border: none; color: ${styles.linkColor}; text-decoration: underline; font-size: 13px; cursor: pointer; padding: 0;">Read a short summary</button>
         </div>
-        <div id="cmp-summary-panel" role="region" aria-labelledby="cmp-summary-trigger" style="display: none; margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.04); border-radius: 8px; border: 1px solid rgba(0,0,0,0.08); max-height: 240px; overflow-y: auto; font-size: 13px; line-height: 1.5; color: ${styles.bannerTextColor};">
+        <div id="cmp-summary-panel" role="region" aria-labelledby="cmp-summary-trigger" style="display: block; margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.04); border-radius: 8px; border: 1px solid rgba(0,0,0,0.08); max-height: 240px; overflow-y: auto; font-size: 13px; line-height: 1.5; color: ${styles.bannerTextColor};">
           <p style="margin: 0; color: rgba(0,0,0,0.5);">Loading…</p>
         </div>
       `;
@@ -1193,6 +1193,10 @@
         panel.style.display = isExpanded ? 'none' : 'block';
         if (!isExpanded) fetchAndRenderBannerSummary();
       });
+    }
+    // Summary is open by default; load content when banner first appears
+    if (summaryTrigger && document.getElementById('cmp-summary-panel')) {
+      fetchAndRenderBannerSummary();
     }
   }
 
