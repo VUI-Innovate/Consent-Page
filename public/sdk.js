@@ -327,6 +327,21 @@
   };
   let lastAppliedCategories = null; // Track last applied categories to prevent infinite loops
   let processedScripts = new Set(); // Track processed scripts to prevent duplicates
+  let selectedLanguage = 'en'; // Language for policy/summary (DPDP 5(3)); used when recording consent if getLanguageCode not provided
+
+  /**
+   * Get selected policy language (used by banner and consent recording)
+   */
+  function getSelectedLanguage() {
+    return selectedLanguage || 'en';
+  }
+
+  /**
+   * Set selected policy language (e.g. from banner or page dropdown)
+   */
+  function setSelectedLanguage(lang) {
+    selectedLanguage = (lang && String(lang).trim()) ? String(lang).trim() : 'en';
+  }
 
   /**
    * Generate or retrieve subject ID
@@ -521,6 +536,7 @@
           termsAndConditionsPolicyId: config.termsAndConditionsPolicyId,
           status: consentData.status,
           categories: consentData.categories || config.categories,
+          ...(typeof config.getLanguageCode === 'function' && config.getLanguageCode() ? { languageCode: config.getLanguageCode() } : { languageCode: getSelectedLanguage() }),
           ipAddress: ipAddress, // Optional - backend will also extract from headers
           userAgent: navigator.userAgent,
           metadata: {
@@ -716,6 +732,74 @@
   }
 
   /**
+   * Update banner policy link hrefs to use current selected language
+   */
+  function updateBannerPolicyLinks() {
+    if (!config.privacyPolicyId || !config.publicApiBaseUrl) return;
+    const lang = getSelectedLanguage();
+    const base = config.publicApiBaseUrl;
+    const privacyHref = lang === 'en'
+      ? base + '/' + config.privacyPolicyId + '/active/file'
+      : base + '/' + config.privacyPolicyId + '/active/translations/' + encodeURIComponent(lang) + '/download';
+    const termsHref = config.termsAndConditionsPolicyId
+      ? (lang === 'en'
+          ? base + '/' + config.termsAndConditionsPolicyId + '/active/file'
+          : base + '/' + config.termsAndConditionsPolicyId + '/active/translations/' + encodeURIComponent(lang) + '/download')
+      : '';
+    const privacyLink = document.getElementById('cmp-privacy-link');
+    const termsLink = document.getElementById('cmp-terms-link');
+    if (privacyLink) privacyLink.setAttribute('href', privacyHref);
+    if (termsLink && termsHref) termsLink.setAttribute('href', termsHref);
+  }
+
+  /**
+   * Fetch summary for selected language and render into banner panel
+   */
+  function fetchAndRenderBannerSummary() {
+    const panel = document.getElementById('cmp-summary-panel');
+    if (!panel || !config.privacyPolicyId || !config.publicApiBaseUrl) return;
+    const lang = getSelectedLanguage();
+    const url = config.publicApiBaseUrl + '/' + config.privacyPolicyId + '/active/summary?languageCode=' + encodeURIComponent(lang);
+    panel.innerHTML = '<p style="margin: 0; color: rgba(0,0,0,0.5);">Loading…</p>';
+    fetch(url)
+      .then(function(r) { return r.json(); })
+      .then(function(result) {
+        const styles = config.styles;
+        if (!result.success || !result.summary) {
+          panel.innerHTML = '<p style="margin: 0 0 8px 0;">Summary not available in this language.</p>' +
+            (config.showPolicyLinks ? '<a id="cmp-summary-download" href="' + (lang === 'en' ? config.publicApiBaseUrl + '/' + config.privacyPolicyId + '/active/file' : config.publicApiBaseUrl + '/' + config.privacyPolicyId + '/active/translations/' + encodeURIComponent(lang) + '/download') + '" target="_blank" rel="noopener" style="color: ' + styles.linkColor + '; text-decoration: underline;">Download full policy (PDF)</a>' : '');
+          return;
+        }
+        const s = result.summary;
+        const dataCollected = s.dataCollected && s.dataCollected.length ? s.dataCollected : [];
+        const summaryBullets = s.summary && s.summary.length ? s.summary : [];
+        let html = '';
+        if (dataCollected.length) {
+          html += '<p style="margin: 0 0 6px 0; font-weight: 600;">Data we collect:</p><ul style="margin: 0 0 12px 0; padding-left: 18px;">';
+          dataCollected.forEach(function(item) { html += '<li style="margin: 2px 0;">' + escapeHtml(String(item)) + '</li>'; });
+          html += '</ul>';
+        }
+        if (summaryBullets.length) {
+          html += '<p style="margin: 0 0 6px 0; font-weight: 600;">Summary:</p><ul style="margin: 0 0 12px 0; padding-left: 18px;">';
+          summaryBullets.forEach(function(item) { html += '<li style="margin: 2px 0;">' + escapeHtml(String(item)) + '</li>'; });
+          html += '</ul>';
+        }
+        const downloadUrl = lang === 'en' ? config.publicApiBaseUrl + '/' + config.privacyPolicyId + '/active/file' : config.publicApiBaseUrl + '/' + config.privacyPolicyId + '/active/translations/' + encodeURIComponent(lang) + '/download';
+        html += '<a id="cmp-summary-download" href="' + downloadUrl + '" target="_blank" rel="noopener" style="color: ' + styles.linkColor + '; text-decoration: underline;">Download full policy (PDF)</a>';
+        panel.innerHTML = html || '<p style="margin: 0;">No summary content.</p>';
+      })
+      .catch(function() {
+        panel.innerHTML = '<p style="margin: 0 0 8px 0;">Summary not available in this language.</p>';
+      });
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  /**
    * Create consent banner HTML
    */
   function createBannerHTML(previousCategories = null, changeMessage = null, hasExistingConsent = false, canWithdrawConsent = true) {
@@ -741,21 +825,49 @@
       </div>`;
     }
     
-    // Build policy links
+    // Build policy links (respect selected language for download)
+    const lang = getSelectedLanguage();
+    const privacyUrl = (config.privacyPolicyId && config.publicApiBaseUrl)
+      ? (lang === 'en'
+          ? `${config.publicApiBaseUrl}/${config.privacyPolicyId}/active/file`
+          : `${config.publicApiBaseUrl}/${config.privacyPolicyId}/active/translations/${encodeURIComponent(lang)}/download`)
+      : '';
+    const termsUrl = (config.termsAndConditionsPolicyId && config.publicApiBaseUrl)
+      ? (lang === 'en'
+          ? `${config.publicApiBaseUrl}/${config.termsAndConditionsPolicyId}/active/file`
+          : `${config.publicApiBaseUrl}/${config.termsAndConditionsPolicyId}/active/translations/${encodeURIComponent(lang)}/download`)
+      : '';
+
     let policyLinks = '';
     if (config.showPolicyLinks) {
       const links = [];
-      if (config.privacyPolicyId) {
-        const privacyUrl = `${config.publicApiBaseUrl}/${config.privacyPolicyId}/active/file`;
-        links.push(`<a href="${privacyUrl}" target="_blank" class="cmp-banner__link" style="color: ${styles.linkColor}; text-decoration: underline; font-weight: 500; transition: all 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Privacy Policy</a>`);
+      if (config.privacyPolicyId && privacyUrl) {
+        links.push(`<a id="cmp-privacy-link" href="${privacyUrl}" target="_blank" rel="noopener" class="cmp-banner__link" style="color: ${styles.linkColor}; text-decoration: underline; font-weight: 500; transition: all 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Privacy Policy</a>`);
       }
-      if (config.termsAndConditionsPolicyId) {
-        const termsUrl = `${config.publicApiBaseUrl}/${config.termsAndConditionsPolicyId}/active/file`;
-        links.push(`<a href="${termsUrl}" target="_blank" class="cmp-banner__link" style="color: ${styles.linkColor}; text-decoration: underline; font-weight: 500; transition: all 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Terms & Conditions</a>`);
+      if (config.termsAndConditionsPolicyId && termsUrl) {
+        links.push(`<a id="cmp-terms-link" href="${termsUrl}" target="_blank" rel="noopener" class="cmp-banner__link" style="color: ${styles.linkColor}; text-decoration: underline; font-weight: 500; transition: all 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">Terms & Conditions</a>`);
       }
       if (links.length > 0) {
         policyLinks = `<div class="cmp-banner__policy-links" style="margin-top: 12px; font-size: 13px; color: ${styles.bannerTextColor}; opacity: 0.85;">Read our ${links.join(' and ')}.</div>`;
       }
+    }
+
+    // Language row + expandable summary (when privacy policy and public API exist)
+    const showSummaryInBanner = config.privacyPolicyId && config.publicApiBaseUrl && config.showPolicySummaryInBanner !== false;
+    let languageAndSummaryHTML = '';
+    if (showSummaryInBanner) {
+      languageAndSummaryHTML = `
+        <div class="cmp-banner__language-row" style="margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px;">
+          <span style="font-size: 13px; color: ${styles.bannerTextColor}; opacity: 0.9;">Policy in:</span>
+          <select id="cmp-banner-language" aria-label="Policy language" style="padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(0,0,0,0.2); background: #fff; color: ${styles.bannerTextColor}; font-size: 13px; cursor: pointer;">
+            <option value="en" ${lang === 'en' ? 'selected' : ''}>English</option>
+          </select>
+          <button type="button" id="cmp-summary-trigger" aria-expanded="false" aria-controls="cmp-summary-panel" aria-label="Expand privacy summary" style="background: none; border: none; color: ${styles.linkColor}; text-decoration: underline; font-size: 13px; cursor: pointer; padding: 0;">Read a short summary</button>
+        </div>
+        <div id="cmp-summary-panel" role="region" aria-labelledby="cmp-summary-trigger" style="display: none; margin-top: 12px; padding: 12px; background: rgba(0,0,0,0.04); border-radius: 8px; border: 1px solid rgba(0,0,0,0.08); max-height: 240px; overflow-y: auto; font-size: 13px; line-height: 1.5; color: ${styles.bannerTextColor};">
+          <p style="margin: 0; color: rgba(0,0,0,0.5);">Loading…</p>
+        </div>
+      `;
     }
 
     // Close button (only show when opened from preferences)
@@ -814,6 +926,7 @@
                 ${bannerText}
               </p>
               ${policyLinks}
+              ${languageAndSummaryHTML}
             </div>
             <div class="cmp-banner__actions" style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-start; flex-shrink: 0;">
             ${hasExistingConsent ? `
@@ -1034,6 +1147,51 @@
         e.stopPropagation();
         hideBanner();
         showPreferencesButton();
+      });
+    }
+
+    // Banner language dropdown + expandable summary
+    const bannerLanguageSelect = document.getElementById('cmp-banner-language');
+    const summaryTrigger = document.getElementById('cmp-summary-trigger');
+    if (bannerLanguageSelect) {
+      // Fetch available languages and populate dropdown
+      if (config.privacyPolicyId && config.publicApiBaseUrl) {
+        var langUrl = config.publicApiBaseUrl + '/' + config.privacyPolicyId + '/translations/available';
+        fetch(langUrl).then(function(r) { return r.json(); }).then(function(result) {
+          if (result.success && result.languages && result.languages.length > 0) {
+            var hasEn = result.languages.some(function(l) { return l.languageCode === 'en'; });
+            bannerLanguageSelect.innerHTML = '';
+            if (!hasEn) {
+              var optEn = document.createElement('option');
+              optEn.value = 'en';
+              optEn.textContent = 'English';
+              bannerLanguageSelect.appendChild(optEn);
+            }
+            result.languages.forEach(function(lang) {
+              var opt = document.createElement('option');
+              opt.value = lang.languageCode;
+              opt.textContent = lang.languageName;
+              bannerLanguageSelect.appendChild(opt);
+            });
+          }
+          bannerLanguageSelect.value = getSelectedLanguage();
+        }).catch(function() { bannerLanguageSelect.value = 'en'; });
+      }
+      bannerLanguageSelect.addEventListener('change', function() {
+        setSelectedLanguage(this.value);
+        updateBannerPolicyLinks();
+        var panel = document.getElementById('cmp-summary-panel');
+        if (panel && panel.style.display !== 'none') fetchAndRenderBannerSummary();
+      });
+    }
+    if (summaryTrigger) {
+      summaryTrigger.addEventListener('click', function() {
+        var panel = document.getElementById('cmp-summary-panel');
+        if (!panel) return;
+        var isExpanded = this.getAttribute('aria-expanded') === 'true';
+        this.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
+        panel.style.display = isExpanded ? 'none' : 'block';
+        if (!isExpanded) fetchAndRenderBannerSummary();
       });
     }
   }
@@ -1357,6 +1515,8 @@
     // Update getCurrentConsent to ensure it returns the latest currentConsent
     window.CMP.getCurrentConsent = function() { return currentConsent; };
     window.CMP.applyPreferences = applyConsentPreferences;
+    window.CMP.getSelectedLanguage = getSelectedLanguage;
+    window.CMP.setSelectedLanguage = setSelectedLanguage;
     
     // Process any scripts that were queued before init
     setTimeout(() => {

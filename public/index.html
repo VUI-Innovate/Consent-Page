@@ -337,6 +337,26 @@
     </div>
 
     <div class="card">
+      <h3>Policy language</h3>
+      <p class="hint" style="margin-bottom: 12px;">Choose the language for the privacy policy (DPDP Act 5(3)). This choice is recorded with your consent.</p>
+      <div class="row" style="flex-wrap: wrap; gap: 12px; align-items: center;">
+        <select id="policyLanguageSelect" style="padding: 12px 16px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.05); color: #fff; font-size: 14px; min-width: 200px;">
+          <option value="en">English</option>
+        </select>
+        <span id="policyDownloadLink" style="font-size: 13px;"></span>
+      </div>
+      <div id="policyLanguageStatus" class="loading" style="margin-top: 8px; font-size: 13px;">Loading languages…</div>
+    </div>
+
+    <div class="card">
+      <h3>Privacy policy summary (in your chosen language)</h3>
+      <p class="hint" style="margin-bottom: 12px;">Short summary of what we collect and how we use it. Choose language above to switch.</p>
+      <div id="policySummaryContent" class="loading" style="min-height: 60px; font-size: 14px; line-height: 1.6;">
+        Loading summary…
+      </div>
+    </div>
+
+    <div class="card">
       <h3>Consent Categories Status</h3>
       <div id="categories" class="loading">Loading categories...</div>
     </div>
@@ -351,6 +371,112 @@
   <script src="./config.js"></script>
   <script src="./sdk.js"></script>
   <script>
+    var PRIVACY_POLICY_ID = 'cmlb87o2t0000mok017qr204s';
+    var selectedPolicyLanguage = 'en';
+
+    function getPublicApiBaseUrl() {
+      return (typeof window.CMP_BASE_URLS !== 'undefined' && window.CMP_BASE_URLS.publicApiBaseUrl) ? window.CMP_BASE_URLS.publicApiBaseUrl : '';
+    }
+
+    function updatePolicyDownloadLink() {
+      var linkEl = document.getElementById('policyDownloadLink');
+      if (!linkEl || !PRIVACY_POLICY_ID) return;
+      var base = getPublicApiBaseUrl();
+      if (!base) return;
+      if (selectedPolicyLanguage === 'en') {
+        linkEl.innerHTML = '<a href="' + base + '/' + PRIVACY_POLICY_ID + '/active/file" target="_blank" rel="noopener" style="color: #a78bfa;">Download Privacy Policy (English)</a>';
+      } else {
+        linkEl.innerHTML = '<a href="' + base + '/' + PRIVACY_POLICY_ID + '/active/translations/' + encodeURIComponent(selectedPolicyLanguage) + '/download" target="_blank" rel="noopener" style="color: #a78bfa;">Download Privacy Policy</a>';
+      }
+    }
+
+    async function loadPolicyLanguages() {
+      var select = document.getElementById('policyLanguageSelect');
+      var statusEl = document.getElementById('policyLanguageStatus');
+      var base = getPublicApiBaseUrl();
+      if (!select || !base || !PRIVACY_POLICY_ID) {
+        if (statusEl) statusEl.textContent = 'Configure API base URL and policy ID.';
+        return;
+      }
+      try {
+        if (statusEl) statusEl.textContent = 'Loading languages…';
+        var response = await fetch(base + '/' + PRIVACY_POLICY_ID + '/translations/available');
+        var result = await response.json();
+        if (result.success && result.languages && result.languages.length > 0) {
+          select.innerHTML = '';
+          var hasEn = result.languages.some(function(l) { return l.languageCode === 'en'; });
+          if (!hasEn) {
+            var optEn = document.createElement('option');
+            optEn.value = 'en';
+            optEn.textContent = 'English';
+            select.appendChild(optEn);
+          }
+          result.languages.forEach(function(lang) {
+            var opt = document.createElement('option');
+            opt.value = lang.languageCode;
+            opt.textContent = lang.languageName;
+            select.appendChild(opt);
+          });
+          selectedPolicyLanguage = (window.CMP && window.CMP.getSelectedLanguage && window.CMP.getSelectedLanguage()) || selectedPolicyLanguage;
+          select.value = selectedPolicyLanguage;
+          updatePolicyDownloadLink();
+          if (statusEl) statusEl.textContent = '';
+        } else {
+          select.innerHTML = '<option value="en">English</option>';
+          updatePolicyDownloadLink();
+          if (statusEl) statusEl.textContent = 'Only default language available.';
+        }
+      } catch (e) {
+        select.innerHTML = '<option value="en">English</option>';
+        selectedPolicyLanguage = 'en';
+        updatePolicyDownloadLink();
+        if (statusEl) statusEl.textContent = 'Could not load languages. Using English.';
+      }
+      loadPolicySummary();
+    }
+
+    function escapeHtml(text) {
+      var div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    async function loadPolicySummary() {
+      var el = document.getElementById('policySummaryContent');
+      var base = getPublicApiBaseUrl();
+      if (!el || !base || !PRIVACY_POLICY_ID) return;
+      var lang = (window.CMP && window.CMP.getSelectedLanguage && window.CMP.getSelectedLanguage()) || selectedPolicyLanguage || 'en';
+      el.innerHTML = 'Loading summary…';
+      el.classList.add('loading');
+      try {
+        var response = await fetch(base + '/' + PRIVACY_POLICY_ID + '/active/summary?languageCode=' + encodeURIComponent(lang));
+        var result = await response.json();
+        el.classList.remove('loading');
+        if (!result.success || !result.summary) {
+          el.innerHTML = '<p style="color: #a0a0a0;">Summary not available in this language. You can still download the full policy above.</p>';
+          return;
+        }
+        var s = result.summary;
+        var dataCollected = (s.dataCollected && s.dataCollected.length) ? s.dataCollected : [];
+        var summaryBullets = (s.summary && s.summary.length) ? s.summary : [];
+        var html = '';
+        if (dataCollected.length) {
+          html += '<p style="margin: 0 0 8px 0; font-weight: 600;">Data we collect:</p><ul style="margin: 0 0 16px 0; padding-left: 20px;">';
+          dataCollected.forEach(function(item) { html += '<li style="margin: 4px 0;">' + escapeHtml(String(item)) + '</li>'; });
+          html += '</ul>';
+        }
+        if (summaryBullets.length) {
+          html += '<p style="margin: 0 0 8px 0; font-weight: 600;">Summary:</p><ul style="margin: 0 0 16px 0; padding-left: 20px;">';
+          summaryBullets.forEach(function(item) { html += '<li style="margin: 4px 0;">' + escapeHtml(String(item)) + '</li>'; });
+          html += '</ul>';
+        }
+        el.innerHTML = html || '<p style="color: #a0a0a0;">No summary content.</p>';
+      } catch (e) {
+        el.classList.remove('loading');
+        el.innerHTML = '<p style="color: #a0a0a0;">Summary not available. You can download the full policy above.</p>';
+      }
+    }
+
     function randomExternalUserId() {
       if (crypto && crypto.randomUUID) return 'ext-' + crypto.randomUUID();
       return 'ext-' + Math.random().toString(16).slice(2) + Date.now().toString(16);
@@ -428,6 +554,7 @@
         if (consent.timestamp) importantFields.timestamp = consent.timestamp;
         if (consent.subjectId) importantFields.subjectId = consent.subjectId;
         if (consent.externalUserId) importantFields.externalUserId = consent.externalUserId;
+        if (consent.languageCode !== undefined) importantFields.languageCode = consent.languageCode;
 
         const consentHTML = `
           <pre style="background: rgba(0, 0, 0, 0.4); color: #e0e0e0; padding: 16px; border-radius: 8px; overflow: auto; font-family: 'Monaco', 'Menlo', 'Courier New', monospace; font-size: 13px; line-height: 1.6; border: 1px solid rgba(255, 255, 255, 0.1); margin: 0;">${JSON.stringify(importantFields, null, 2)}</pre>
@@ -457,17 +584,31 @@
       }
     }
 
-    // Initialize CMP
+    // Initialize CMP (getLanguageCode syncs with SDK so consent records the same language as banner/page)
     CMP.init({
       apiBaseUrl: window.CMP_BASE_URLS.apiBaseUrl,
       publicApiBaseUrl: window.CMP_BASE_URLS.publicApiBaseUrl,
-      privacyPolicyId: 'cmkmoyi1g000xzv5rss96mqrv',
-      termsAndConditionsPolicyId: 'cmkms2vl2000zzv5rcnoubryo',
+      privacyPolicyId: PRIVACY_POLICY_ID,
+      //termsAndConditionsPolicyId: 'cmkms2vl2000zzv5rcnoubryo',
+      getLanguageCode: function() { return (CMP.getSelectedLanguage && CMP.getSelectedLanguage()) || selectedPolicyLanguage || 'en'; },
       onConsentChange: function() {
         renderCategories();
         renderConsent();
       }
     });
+
+    selectedPolicyLanguage = (CMP.getSelectedLanguage && CMP.getSelectedLanguage()) || selectedPolicyLanguage;
+
+    var policyLanguageSelect = document.getElementById('policyLanguageSelect');
+    if (policyLanguageSelect) {
+      policyLanguageSelect.addEventListener('change', function() {
+        selectedPolicyLanguage = policyLanguageSelect.value || 'en';
+        if (CMP.setSelectedLanguage) CMP.setSelectedLanguage(selectedPolicyLanguage);
+        updatePolicyDownloadLink();
+        loadPolicySummary();
+      });
+    }
+    loadPolicyLanguages();
 
     document.getElementById('loginRandom').addEventListener('click', async () => {
       try {
